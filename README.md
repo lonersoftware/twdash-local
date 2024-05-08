@@ -1,10 +1,10 @@
 # twdash-local version 1.4.1
-local server with containers and auto ssl (cli)
+Local server with containers and auto SSL (CLI).
 
-twdash-local is the reduce version of twdash, twdash-local was created to have containers and auto ssl ready with one or two commands, without needing to have the knowledge of creating the containers network or even the lemp server, anyhow this knowledge is beneficial long term, so as possible all docker commands had stay identical for this same reason.  its open-source, feedbacks are welcome.  
+Twdash-local is a reduced version of twdash. It was created to provide containers and auto SSL capabilities with just one or two commands, without requiring knowledge of container network creation or the LEMP server setup. However, gaining this knowledge is beneficial in the long term. Hence, all Docker commands have remained identical for consistency. It's open-source, and feedback is welcome.
 
-Ubuntu and Debian repositories have a version of docker that still doesnt allow sudoless commands of docker, this way twdash installs directly from the official page of docker the latest stable realease.
-For this same reason only works on Debian 12 and forward enviroments. 
-On Ubuntu and Fedora enviroments posssibly the same, still on tests. be free to drop feedback.
+Ubuntu and Debian repositories have versions of Docker that still don't allow sudoless commands for Docker. Therefore, twdash installs directly from the official Docker website, ensuring the latest stable release. Due to this limitation, it only works on Debian 12 and later environments, also in Ubuntu 22.04 enviroments and forward.
 
-Cli first version ready to use, should work just fine has expected, if theres bugs they can be open as issue in this same github. UI on the way , expected at april's 2024, still not started. 
+Compatibility Fedora environments is still being tested. Feel free to provide feedback.
+
+The CLI's first version is ready to use and should work as expected. Any bugs can be reported as issues on this GitHub repository. The UI version is currently in development and was expected to be released in April 2024, although development has not yet begun.
