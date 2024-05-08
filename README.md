@@ -14,3 +14,5 @@ Ubuntu and Debian repositories have versions of Docker that still don't allow su
 Compatibility Fedora environments is still being tested. Feel free to provide feedback.
 
 The CLI's first version is ready to use and should work as expected. Any bugs can be reported as issues on this GitHub repository. The UI version is currently in development and was expected to be released in April 2024, although development has not yet begun.
+
+Everything is still need it in this small project, documentation, UI, design, translation and so on. however the cli is up and going.
