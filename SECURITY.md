@@ -6,7 +6,7 @@
 | ------- | ------------------ |
 | 1.4.1   | :white_check_mark: |
 
-twdash-local is design to run locally on the user computer, is mainly for developers, twdash-local does work on servers also but will not display websites and aplications for the web, its meant to be used on localhost
+twdash-local is design to run locally on the user computer, its mainly for developers, twdash-local does work on servers also but will not display websites and aplications for the web, its meant to be used on localhost
 
 
 ## Reporting a Vulnerability
