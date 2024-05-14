@@ -12,7 +12,7 @@ then just use as a command egg: "twd ps -a"
 ## more info
 Twdash-local is a reduced version of twdash. It was created to provide containers and auto SSL capabilities with just one or two commands, without requiring knowledge of container network creation or the LEMP server setup. However, gaining this knowledge is beneficial in the long term. Hence, all Docker commands have remained identical for consistency. It's open-source, and feedback is welcome.
 
-Ubuntu and Debian repositories have versions of Docker that still don't allow sudoless commands for Docker. Therefore, twdash installs directly from the official Docker website, ensuring the latest stable release. Due to this limitation, it only works on Debian 12 and later environments, also in Ubuntu 22.04 enviroments and forward.
+Ubuntu and Debian repositories have versions of Docker that still don't allow sudoless commands for Docker. Therefore, twdash-local installs directly from the official Docker website, ensuring the latest stable release. Due to this limitation(that is a plus), it only works on Debian 12 and later environments, also in Ubuntu 22.04 enviroments and forward.
 
 Compatibility Fedora environments is still being tested. Feel free to provide feedback.
 
