@@ -1,4 +1,4 @@
-# twdash-local version 1.4.1
+# twdash-local version 1.4.4
 Local server with containers and auto SSL (CLI).
 
 Twdash-local is a reduced version of twdash. It was created to provide containers and auto SSL capabilities with just one or two commands, without requiring knowledge of container network creation or the LEMP server setup. However, gaining this knowledge is beneficial in the long term. Hence, all Docker commands have remained identical for consistency. It's open-source, and feedback is welcome.
