@@ -8,9 +8,7 @@
 #include <time.h>
 #include <curl/curl.h>
 #include <stdarg.h>
-#define LOCAL_VERSION "1.4.1"
-#define VERSION_URL "https://twdash.com/files/twdash_local.json"
-#define MAX_COMMAND_LENGTH 1024
+#define LOCAL_VERSION "1.4.3"
 #define MAX_WORDS 5 
 #define GREEN "\033[0;32m"
 #define ORANGE "\033[0;33m"
@@ -34,7 +32,7 @@ int install_ssl_ca();
 int install_ssl(const char *domain_name); 
 void network_create(const char *NETWORK_NAME);
 void network_rm(const char *NETWORK_NAME);
-void list_alias();
+int list_alias();
 void alias_create(const char *container_alias);
 void alias_rm(const char *container_alias);
 void stop_container(const char *CONTAINER_NAME,int OPTION);
@@ -56,8 +54,7 @@ int start_container(const char *container_name);
 int restart_container(const char *container_name);
 int is_name_present(const char *name);
 int is_ip_present(const char *ip_address);
-size_t write_callback(void *ptr, size_t size, size_t nmemb, char *data);
-const char *find_value(const char *json, const char *key);
+int is_ip_and_name_present(const char *ip_address, const char *name);
 void prepareHostsFile();
 int hostsupdate(char *action);
 int strsize(char *str);
@@ -65,30 +62,7 @@ char* strjoin(char *input, ...);
 void* print(char *input, ...);
 void nginx_wpwebsite(char *dn);
 void nginx_html_website(char* dn);
-
-int compare_versions(const char *v1, const char *v2){  // todo: in dev 
-    // Split version strings into components
-    int major1, minor1, patch1;
-    int major2, minor2, patch2;
-    sscanf(v1, "%d.%d.%d", &major1, &minor1, &patch1);
-    sscanf(v2, "%d.%d.%d", &major2, &minor2, &patch2);
-
-    // Compare major version
-    if (major1 < major2) return -1;
-    if (major1 > major2) return 1;
-
-    // Compare minor version
-    if (minor1 < minor2) return -1;
-    if (minor1 > minor2) return 1;
-
-    // Compare patch version
-    if (patch1 < patch2) return -1;
-    if (patch1 > patch2) return 1;
-
-    // Versions are equal
-    return 0;
-}
-
+void install_phpmyadmin_website();
 
 int get_year() {
     time_t currentTime;
@@ -121,7 +95,6 @@ int main(int argc, char *argv[]){
                 int c;
                 while ((c = getchar()) != '\n' && c != EOF);
             }
-
             token = strtok(choice, " ");
             while (token != NULL && word_count < MAX_WORDS) {
                 words[word_count] = malloc(strlen(token) + 1);
@@ -161,6 +134,11 @@ int main(int argc, char *argv[]){
                         install_twdash();
                     else
                         print("%susage: install main%s",ORANGE,NC);
+                } else if (word_count>=2 && strcmp(words[1], "phpmyadmin") == 0) {
+                    if(word_count==2)
+                        install_phpmyadmin_website();
+                    else
+                        print("%susage: install phpmyadmin%s",ORANGE,NC);
                 } else if (word_count>=2 && strcmp(words[1], "htmlwebsite") == 0) {
                     if(word_count==3)
                         nginx_html_website(words[2]);
@@ -177,7 +155,7 @@ int main(int argc, char *argv[]){
                     else
                         print("%susage: install wpwebsite <network_name>%s",ORANGE,NC);
                 } else {
-                    print("%susage: install ( main | phpwebsite )%s",ORANGE,NC);
+                    print("%susage: install ( main | htmlwebsite | phpwebsite | wpwebsite | phpmyadmin)%s",ORANGE,NC);
                 }
             } else if (strcmp(words[0], "network") == 0){
                 if (strcmp(words[1], "ls") == 0) {
@@ -222,13 +200,17 @@ int main(int argc, char *argv[]){
                     if(word_count == 2){
                         if (strcmp(words[1], "-a") == 0)
                             system("docker ps -a");
+                        else if (strcmp(words[1], "-m") == 0)
+                            system("docker ps --format \"table {{.ID}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}\t{{.Names}}\" | column -t -s $'\t'");
+                        else if (strcmp(words[1], "-ma") == 0)
+                            system("docker ps -a --format \"table {{.ID}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}\t{{.Names}}\" | column -t -s $'\t'");
                         else
                             print("%susage: ps -a%s",ORANGE,NC);
                     } else {
                             system("docker ps");
                     }
                 } else {
-                    print("%susage: ps -a%s",ORANGE,NC);
+                    print("%susage: ps <-a|-m|-ma>%s",ORANGE,NC);
                 }
             } else if (strcmp(words[0],"stop") == 0) {
                 if(word_count==2){
@@ -322,12 +304,6 @@ int main(int argc, char *argv[]){
                     restart_container(words[1]); 
                 else
                     print("%susage: restart <container_name>%s",ORANGE,NC);
-            } else if (strcmp(words[0], "update-twdash") == 0) {
-                if(word_count==1)
-                	print("update_twdash()");
-                    // update_twdash();
-                else
-                    print("%susage: update-twdash%s",ORANGE,NC);
             } else if (strcmp(words[0], "--version") == 0  || strcmp(words[0], "-v") == 0) {
                 if(word_count==1)
                     print("twdash local v%s",LOCAL_VERSION);
@@ -371,6 +347,11 @@ int main(int argc, char *argv[]){
                     install_twdash();
                 else
                     print("%susage: twd install main%s",ORANGE,NC);
+            } else if (strcmp(argv[2], "phpmyadmin") == 0) {
+                if(argc==3)
+                    install_phpmyadmin_website();
+                else
+                    print("%susage: twd install phpmyadmin%s",ORANGE,NC);
             } else if (strcmp(argv[2], "htmlwebsite") == 0) {
                 if(argc==4)
                     nginx_html_website(argv[3]);
@@ -387,7 +368,7 @@ int main(int argc, char *argv[]){
                 else
                     print("%susage: twd install wpwebsite <domain_name>%s",ORANGE,NC);
             } else {
-                print("%susage: twd install ( main | phpwebsite )%s",ORANGE,NC);
+                print("%susage: twd install ( main | htmlwebsite | phpwebsite | wpwebsite)%s",ORANGE,NC);
             }
         } else if (strcmp(argv[1], "network") == 0){
             if (strcmp(argv[2], "ls") == 0) {
@@ -432,13 +413,17 @@ int main(int argc, char *argv[]){
                 if(argc == 3){
                     if (strcmp(argv[2], "-a") == 0)
                         system("docker ps -a");
+                    else if (strcmp(argv[2], "-m") == 0)
+                        system("docker ps --format \"table {{.ID}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}\t{{.Names}}\" | column -t -s $'\t'");
+                    else if (strcmp(argv[2], "-ma") == 0)
+                        system("docker ps -a --format \"table {{.ID}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}\t{{.Names}}\" | column -t -s $'\t'");
                     else
                         print("%susage: twd ps -a%s",ORANGE,NC);
                 } else {
                         system("docker ps");
                 }
             } else {
-                print("%susage: ps -a%s",ORANGE,NC);
+                print("%susage: ps <-a|-m|-ma>%s",ORANGE,NC);
             }
         } else if (strcmp(argv[1], "stop") == 0) {
             if(argc==3)
@@ -530,12 +515,6 @@ int main(int argc, char *argv[]){
                 restart_container(argv[2]); 
             else
                 print("%susage: twd restart <container_name>%s",ORANGE,NC);
-        } else if (strcmp(argv[1], "update-twdash") == 0) {
-            if(argc==2)
-            	print("update_twdash()");
-                // update_twdash();
-            else
-                print("%susage: twd update-twdash%s",ORANGE,NC);
         } else if (strcmp(argv[1], "--version") == 0  || strcmp(argv[1], "-v") == 0) {
             if(argc==2)
                 print("twdash local v%s",LOCAL_VERSION);
@@ -561,10 +540,47 @@ int main(int argc, char *argv[]){
     return 0;
 }
 
+const char *phpmyadminconf = "<VirtualHost *:80>\n\
+        ServerAdmin webmaster@localhost\n\
+        DocumentRoot /var/www/html\n\
+\n\
+        ErrorLog ${APACHE_LOG_DIR}/error.log\n\
+        CustomLog ${APACHE_LOG_DIR}/access.log combined\n\
+</VirtualHost>";
+const char *phpmyadminconf2 = "<VirtualHost *:443>\n\
+    ServerAdmin webmaster@db.local\n\
+    ServerName db.local\n\
+    ServerAlias www.db.local\n\
+\n\
+    DocumentRoot /var/www/html\n\
+\n\
+    SSLEngine on\n\
+    SSLCertificateFile /etc/twdssl/db.local/fullchain.pem\n\
+    SSLCertificateKeyFile /etc/twdssl/db.local/cert-key.pem\n\
+\n\
+    <Directory /var/www/html>\n\
+        Options Indexes FollowSymLinks\n\
+        AllowOverride All\n\
+        Require all granted\n\
+    </Directory>\n\
+\n\
+    ErrorLog ${APACHE_LOG_DIR}/db.local_error.log\n\
+    CustomLog ${APACHE_LOG_DIR}/db.local_access.log combined\n\
+</VirtualHost>\n\
+\n\
+<VirtualHost *:80>\n\
+        ServerAdmin webmaster@localhost\n\
+        DocumentRoot /var/www/html\n\
+\n\
+        Redirect permanent / https://db.local\n\
+\n\
+        ErrorLog ${APACHE_LOG_DIR}/error.log\n\
+        CustomLog ${APACHE_LOG_DIR}/access.log combined\n\
+</VirtualHost>";
+
 const char *defaultconf = "server {\n\
     listen 80;\n\
     server_name DOMAIN_NAME www.DOMAIN_NAME;\n\
-    client_max_body_size 50M;\n\
     return 301 https://DOMAIN_NAME$request_uri;\n\
 }\n\
 server {\n\
@@ -572,7 +588,6 @@ server {\n\
     server_name www.DOMAIN_NAME;\n\
     ssl_certificate /etc/twdssl/DOMAIN_NAME/fullchain.pem;\n\
     ssl_certificate_key /etc/twdssl/DOMAIN_NAME/cert-key.pem;\n\
-    client_max_body_size 50M;\n\
     return 301 https://DOMAIN_NAME$request_uri;\n\
 }\n\
 server {\n\
@@ -589,17 +604,12 @@ server {\n\
     location @rewrite {\n\
         rewrite ^/(.*)$ /$1.php last;\n\
     }\n\
+    error_page 404 /404.php;\n\
     location ~ \\.php$ {\n\
         include fastcgi_params;\n\
         fastcgi_pass twdash-php:9000;\n\
         fastcgi_param SCRIPT_FILENAME /var/www/html/DOMAIN_NAME$fastcgi_script_name;\n\
-    }\n\
-    error_page 404 /404.php;\n\
-    location = /404.php {\n\
-        internal;\n\
-        include fastcgi_params;\n\
-        fastcgi_pass twdash-php:9000;\n\
-        fastcgi_param SCRIPT_FILENAME /var/www/html/DOMAIN_NAME/404.php;\n\
+        try_files $uri =404;\n\
     }\n\
 }";
 
@@ -657,7 +667,6 @@ void* print(char *input, ...) {
 	printf("%s\n",array);
 }
 
-
 int is_directory(const char *path){
     struct stat stats;
     if (stat(path, &stats) == 0 && S_ISDIR(stats.st_mode))
@@ -669,35 +678,35 @@ void show_menu() {
     print(" 1) docker install\t\t(with sudo, only on cli)\n"
        " 2) docker rm\t\t\t(with sudo, only on cli)\n"
        " 3) install main\n"
-       " 4) install htmlwebsite \n"
-       " 5) install phpwebsite \n"
-       " 6) install wpwebsite \n"
-       " 7) ps\n"
-       " 8) ps -a\n"
-       " 9) network ls\n"
-       "10) network create\n"
-       "11) network rm\n"
-       "12) stop\n"
-       "13) rm\n"
-       "14) ip\n"
-       "15) start\n"
-       "16) restart\n"
-       "17) alias ls\n"
-       "18) alias create\n"
-       "19) alias rm\n"
-       "20) ca\n"
-       "21) ssl\n"
-       "22) logs\n"
-       "23) exec\n"
-       "24) tree\n"
-       "25) rmf\n"
-       "26) images\n"
-       "27) rmi\n"
-       "28) db enter\n"
-       "29) db backup\n"
-       "30) db restore\n"
-       "31) git"                //todo:
-       "94) update-twdash\n"    //todo:
+       " 4) install phpmyadmin\n"
+       " 5) install htmlwebsite \n"
+       " 6) install phpwebsite \n"
+       " 7) install wpwebsite \n"
+       " 8) ps\n"
+       " 9) ps -a\n"
+       "10) network ls\n"
+       "11) network create\n"
+       "12) network rm\n"
+       "13) stop\n"
+       "14) rm\n"
+       "15) ip\n"
+       "16) start\n"
+       "17) restart\n"
+       "18) alias ls\n"
+       "19) alias create\n"
+       "20) alias rm\n"
+       "21) ca\n"
+       "22) ssl\n"
+       "23) logs\n"
+       "24) exec\n"
+       "25) tree\n"
+       "26) rmf\n"
+       "27) images\n"
+       "28) rmi\n"
+       "29) db enter\n"
+       "30) db backup\n"
+       "31) db restore\n"
+       "32) git\n"                //todo:
        "97) --version\n"    
        "98) --help\n"
        "99) clear\n"
@@ -1118,7 +1127,6 @@ void install_twdash(){
     install_twdash_mysql();
     install_twdash_php();
     print("");
-    // nginx_php_website("twdash.local");
 }
 
 void install_twdash_mysql(){
@@ -1235,57 +1243,122 @@ int install_twdash_php(){
         print("[%s OK %s] twdash-php already installed and running",GREEN,NC);
     }
 }
+char htmlconf[] = "server {\n\
+    listen 80;\n\
+    server_name DOMAIN_NAME www.DOMAIN_NAME;\n\
+    return 301 https://DOMAIN_NAME$request_uri;\n\
+}\n\
+server {\n\
+    listen 443 ssl;\n\
+    server_name www.DOMAIN_NAME;\n\
+    ssl_certificate /etc/twdssl/DOMAIN_NAME/fullchain.pem;\n\
+    ssl_certificate_key /etc/twdssl/DOMAIN_NAME/cert-key.pem;\n\
+    return 301 https://DOMAIN_NAME$request_uri;\n\
+}\n\
+server {\n\
+    listen 443 ssl;\n\
+    server_name DOMAIN_NAME;\n\
+    ssl_certificate /etc/twdssl/DOMAIN_NAME/fullchain.pem;\n\
+    ssl_certificate_key /etc/twdssl/DOMAIN_NAME/cert-key.pem;\n\
+    client_max_body_size 50M;\n\
+    root /var/www/html;\n\
+    index index.html index.htm;\n\
+    location / {\n\
+        try_files $uri $uri/ @rewrite;\n\
+    }\n\
+    location @rewrite {\n\
+        rewrite ^/(.*)$ /$1.html last;\n\
+        try_files $uri =404\n\
+    }\n\
+}";
 
 void nginx_html_website(char* dn){
     if(is_container_built(dn)){
 		print("[%s Warnning %s] Already exist a container with this name",ORANGE,NC);
 	} else {
 		print("");
-		install_ssl(dn);
-		create_directory(strjoin("/home/%s/twdash/admin/nginx/%s",getenv("USER"),dn));
 		create_directory(strjoin("/home/%s/twdash/sites/%s",getenv("USER"),dn));
-		create_file(strjoin("/home/%s/twdash/sites/%s/index.php",getenv("USER"),dn),strjoin("<?php echo '<h2>%s</h2><br>'; ?>",dn));
-		create_file(strjoin("/home/%s/twdash/admin/nginx/%s/default.conf",getenv("USER"),dn),defaultconf);
-		system(strjoin("sed -i 's/DOMAIN_NAME/%s/g' '/home/%s/twdash/admin/nginx/%s/default.conf'",dn,getenv("USER"),dn));
+		create_file(strjoin("/home/%s/twdash/sites/%s/index.html",getenv("USER"),dn),strjoin("<h2>%s</h2><br>",dn));
+		create_file(strjoin("/home/%s/twdash/admin/%s.conf",getenv("USER"),dn),htmlconf);
+		system(strjoin("sed -i 's/DOMAIN_NAME/%s/g' '/home/%s/twdash/admin/%s.conf'",dn,getenv("USER"),dn));
 		const char *dcc_template =
-			        "services:\n"
-			        "   %s:\n"
-			        "    image: nginx:alpine\n"
-			        "    container_name: %s\n"
-			        "    volumes:\n"
-			        "      - /home/%s/twdash/admin/ssl/%s:/etc/twdssl/%s\n"
-			        "      - /home/%s/twdash/admin/nginx/%s/default.conf:/etc/nginx/conf.d/default.conf\n"
-			        "      - /home/%s/twdash/sites/%s:/var/www/html\n"
-			        "    networks:\n"
-			        "      - twdash_local\n"
-			        "\n"
-			        "networks:\n"
-			        "  twdash_local:\n"
-			        "       name: twdash_local\n";
-			    FILE *pipe = popen("docker-compose -f - up -d", "w");
-			    if (pipe == NULL) {
-			        printf("[%s Warning %s] Failed to open pipe to docker-compose\n",ORANGE,NC);
-			        return;
-			    }
-			    fprintf(pipe, dcc_template, dn, dn, getenv("USER"), dn, dn, getenv("USER"), dn, getenv("USER"), dn);
-			    if (pclose(pipe) == -1) {
-			        printf("[%s Warning %s] Failed to close pipe to docker-compose\n",ORANGE,NC);
-			        return;
-			    }
-		alias_create(dn);
-		char new_str[strlen(dn) + 1]; 
-        for (int i = 0; i < strsize(dn); i++) {
-            if (dn[i] == '.') {
-                new_str[i] = '_'; 
-            } else {
-                new_str[i] = dn[i]; 
-            }
+            "services:\n"
+            "   %s:\n"
+            "    image: nginx:alpine\n"
+            "    container_name: %s\n"
+            "    volumes:\n"
+            "      - /home/%s/twdash/admin/ssl/%s:/etc/twdssl/%s\n"
+            "      - /home/%s/twdash/admin/%s.conf:/etc/nginx/conf.d/default.conf\n"
+            "      - /home/%s/twdash/sites/%s:/var/www/html\n"
+            "    networks:\n"
+            "      - twdash\n"
+            "\n"
+            "networks:\n"
+            "  twdash:\n"
+            "       name: twdash\n";
+        FILE *pipe = popen("docker-compose -f - up -d", "w");
+        if (pipe == NULL) {
+            printf("[%s Warning %s] Failed to open pipe to docker-compose\n",ORANGE,NC);
+            return;
         }
-        new_str[strlen(dn)] = '\0';
-        system(strjoin("docker exec twdash-mysql mysql -uroot -ppass -e \"CREATE DATABASE %s;\"",new_str));
-		print("\n\n%sdatabase credentials:\n\ndb name:\t%s\nuser:\t\troot\npass:\t\tpass\nlocalhost:\ttwdash-mysql\n\nurl:\t\thttps://%s%s\n",GREEN,new_str,dn,NC);
+        fprintf(pipe, dcc_template, dn, dn, getenv("USER"), dn, dn, getenv("USER"), dn, getenv("USER"), dn);
+        if (pclose(pipe) == -1) {
+            printf("[%s Warning %s] Failed to close pipe to docker-compose\n",ORANGE,NC);
+            return;
+        }
+		alias_create(dn);
 	}
 }
+
+
+void install_phpmyadmin_website(){
+    char *dn = "db.local";
+	if(is_container_built(dn)){
+		print("[%s Warnning %s] Already exist a container with this name",ORANGE,NC);
+	} else {
+		print("");
+		install_ssl(dn);
+		create_directory(strjoin("/home/%s/twdash/admin/nginx/%s",getenv("USER"),dn));
+		create_file(strjoin("/home/%s/twdash/admin/nginx/%s/default.conf",getenv("USER"),dn),phpmyadminconf);
+		system(strjoin("sed -i 's/DOMAIN_NAME/%s/g' '/home/%s/twdash/admin/nginx/%s/default.conf'",dn,getenv("USER"),dn));
+		const char *ddcc_template =
+            "services:\n"
+            "  db.local:\n"
+            "    image: phpmyadmin/phpmyadmin\n"
+            "    container_name: db.local\n"
+            "    environment:\n"
+            "      PMA_HOST: twdash-mysql\n"
+            "      PMA_USER: root\n"
+            "      PMA_PASSWORD: pass\n"
+            "      PMA_PORT: 3306\n"
+            "    volumes:\n"
+            "      - /home/%s/twdash/admin/ssl/%s:/etc/twdssl/%s\n"
+            "      - /home/%s/twdash/admin/nginx/%s/default.conf:/etc/apache2/sites-available/000-default.conf\n"
+            "    networks:\n"
+			"      - twdash_local\n"
+            "networks:\n"
+            "  twdash_local:\n"
+            "       name: twdash_local\n";
+        FILE *pipe = popen("docker-compose -f - up -d", "w");
+        if (pipe == NULL) {
+            printf("[%s Warning %s] Failed to open pipe to docker-compose\n",ORANGE,NC);
+            return;
+        }
+        fprintf(pipe, ddcc_template, getenv("USER"), dn, dn, getenv("USER"), dn);
+        if (pclose(pipe) == -1) {
+            printf("[%s Warning %s] Failed to close pipe to docker-compose\n",ORANGE,NC);
+            return;
+        }
+		alias_create(dn);
+        system("docker exec -it db.local a2enmod ssl");
+        system(strjoin("echo '%s' > /home/%s/twdash/admin/nginx/%s/default.conf",phpmyadminconf2, getenv("USER"),dn));
+        system("twd restart db.local");
+		print("\n\n%shttps://%s%s\n",GREEN,dn,NC);
+	}
+}
+
+
+
 
 void nginx_php_website(char *dn){
 	if(is_container_built(dn)){
@@ -1295,7 +1368,7 @@ void nginx_php_website(char *dn){
 		install_ssl(dn);
 		create_directory(strjoin("/home/%s/twdash/admin/nginx/%s",getenv("USER"),dn));
 		create_directory(strjoin("/home/%s/twdash/sites/%s",getenv("USER"),dn));
-		create_file(strjoin("/home/%s/twdash/sites/%s/index.php",getenv("USER"),dn),strjoin("<?php echo '<h2>%s</h2><br>'; ?>",dn));
+		create_file(strjoin("/home/%s/twdash/sites/%s/index.php",getenv("USER"),dn),"<?php echo '<h2>twdash-local website</h2><br>'; ?>");
 		create_file(strjoin("/home/%s/twdash/admin/nginx/%s/default.conf",getenv("USER"),dn),defaultconf);
 		system(strjoin("sed -i 's/DOMAIN_NAME/%s/g' '/home/%s/twdash/admin/nginx/%s/default.conf'",dn,getenv("USER"),dn));
 		const char *dcc_template =
@@ -1499,10 +1572,11 @@ void stop_container(const char *CONTAINER_NAME,int OPTION){
     }
 }
 
-void list_alias(){
+int list_alias(){
 	print("");
     system("awk '/## twdash alias ##/,/##end twdash ##/' /etc/hosts");
 	print("");
+    exit(1);
 }
 
 int is_name_present(const char *name) {
@@ -1568,6 +1642,40 @@ int is_ip_present(const char *ip_address) {
     return 0;
 }
 
+int is_ip_and_name_present(const char *ip_address, const char *name) {
+    FILE *file = fopen("/etc/hosts", "r");
+    if (file == NULL) {
+        perror("Error opening file");
+        return -1;
+    }
+
+    char line[100];
+    int inside_block = 0;
+
+    while (fgets(line, sizeof(line), file)) {
+        if (strstr(line, "## twdash alias ##") != NULL) {
+            inside_block = 1;
+            continue;
+        }
+        if (strstr(line, "##end twdash ##") != NULL) {
+            break;
+        }
+        if (inside_block) {
+            char *token = strtok(line, "\t");
+            if (token != NULL && strcmp(token, ip_address) == 0) {
+                token = strtok(NULL, "\t\n");
+                if (token != NULL && strcmp(token, name) == 0) {
+                    fclose(file);
+                    return 1;
+                }
+            }
+        }
+    }
+    fclose(file);
+    return 0;
+}
+
+
 void alias_create(const char *container_alias){
     if(is_container_built(container_alias)){
         if(is_container_running(container_alias)){
@@ -1577,14 +1685,28 @@ void alias_create(const char *container_alias){
             const char *start_pattern = "## twdash alias ##";
             const char *end_pattern = "##end twdash ##";
             if(isname && isip){
-                print("[%s OK %s] alias and alias ip already correctly set up",GREEN,NC);
+                if(is_ip_and_name_present(ip,container_alias)==1){
+                    print("[%s OK %s] alias and ip already correctly set up",GREEN,NC);
+                } else if(is_ip_and_name_present(ip,container_alias)==0){
+                    if(hostsupdate(strjoin("/%s/,/%s/{/%s/d}","## twdash alias ##","##end twdash ##",container_alias))){
+                        if(strcmp(container_alias,"twdash-php")!=0 && strcmp(container_alias,"twdash-mysql")!=0){
+                            if(hostsupdate(strjoin("/%s/a %s\t%s",start_pattern,ip,container_alias)))
+                                print("[%s OK %s] alias %s updated",GREEN,NC,container_alias);
+                            else
+                                print("[%s Warnning %s] alias update failed",ORANGE,NC);
+                        }
+                    } else {
+                        print("[%s Warnning %s] alias update failed",ORANGE,NC);
+                    }
+                } else {
+                    print("[%s Warnning %s] There was an error checking if alias and ip are in same line",ORANGE,NC);
+                }
             } else if(!isname && isip){
                 if(hostsupdate(strjoin("/%s/,/%s/s/\\<%s\\>.*/%s\t%s/",start_pattern,end_pattern,ip,ip,container_alias)))
                     print("[%s OK %s] host alias updated successfully",GREEN,NC);
                 else
                     print("[%s Warnning %s] host alias update failed",ORANGE,NC);
-            } 
-			else if(isname && !isip){
+            } else if(isname && !isip){
 				if(hostsupdate(strjoin("/%s/,/%s/{/%s/d}","## twdash alias ##","##end twdash ##",container_alias))){
 					if(strcmp(container_alias,"twdash-php")!=0 && strcmp(container_alias,"twdash-mysql")!=0){
 						if(hostsupdate(strjoin("/%s/a %s\t%s",start_pattern,ip,container_alias)))
@@ -1595,7 +1717,7 @@ void alias_create(const char *container_alias){
 				} else {
 					print("[%s Warnning %s] alias update failed",ORANGE,NC);
 				}
-            } else{
+            } else {
                 if(strcmp(container_alias,"twdash-php")!=0 && strcmp(container_alias,"twdash-mysql")!=0){
                     if(hostsupdate(strjoin("/%s/a %s\t%s",start_pattern,ip,container_alias)))
                         print("[%s OK %s] alias %s added",GREEN,NC,container_alias);
@@ -1839,100 +1961,5 @@ void db_enter_table(const char* db_name){
         print("[%s Warnning %s] failed to enter database",ORANGE,NC);
 }
 
-size_t write_callback(void *ptr, size_t size, size_t nmemb, char *data) {
-    strcat(data, ptr);
-    return size * nmemb;
-}
-
-// char *get_url_content(const char *url) {
-    // curl_global_init(CURL_GLOBAL_ALL);
-    // CURL *curl = curl_easy_init();
-    // if (!curl) {
-        // fprintf(stderr, "Failed to initialize libcurl.\n");
-        // return NULL;
-    // }
-// 
-    // char *received_data = (char *)malloc(4096 * sizeof(char));
-    // if (!received_data) {
-        // fprintf(stderr, "Failed to allocate memory for received data.\n");
-        // curl_easy_cleanup(curl);
-        // return NULL;
-    // }
-    // received_data[0] = '\0';
-    // curl_easy_setopt(curl, CURLOPT_URL, url);
-    // curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
-    // curl_easy_setopt(curl, CURLOPT_WRITEDATA, received_data);
-    // curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
-    // curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
-// 
-    // CURLcode res = curl_easy_perform(curl);
-    // if (res != CURLE_OK) {
-        // fprintf(stderr, "Failed to perform HTTP request: %s\n", curl_easy_strerror(res));
-        // free(received_data);
-        // curl_easy_cleanup(curl);
-        // return NULL;
-    // }
-    // curl_easy_cleanup(curl);
-    // return received_data;
-// }
 
 
-const char *find_value(const char *json, const char *key) {
-    const char *start = strstr(json, key);
-    if (start == NULL) {
-        return NULL; 
-    }
-
-    start += strlen(key);
-    const char *colon = strchr(start, ':');
-    if (colon == NULL) {
-        return NULL; 
-    }
-
-    const char *value_start = colon + 1;
-    while (*value_start == ' ' || *value_start == '\t' || *value_start == '\n' || *value_start == '\r') {
-        value_start++;
-    }
-
-    if (*value_start != '"' || *(value_start + 1) == '\0') {
-        return NULL; 
-    }
-
-    const char *value_end = strchr(value_start + 1, '"');
-    if (value_end == NULL) {
-        return NULL; 
-    }
-
-    return value_start + 1;
-}
-
-// void update_twdash(){
-    // char *content = get_url_content(VERSION_URL);
-    // int result = compare_versions(content, LOCAL_VERSION);
-    // print("the result is : %i",result);
-    // if(result <= 0){
-        // // system("wget https://twdash.com/files/twdash_local && chmod a+x twdash_local && mv twdash_local /usr/bin/twd");
-        // print("%stwdash has been updated to the version %s%s",GREEN,content,NC);
-    // } else {
-        // print("%sall updated in version %s%s",GREEN, LOCAL_VERSION,NC);
-    // }
-    // // if (content) {
-    // //     // const char *version = find_value(content, "\"version\"");
-    // //     if (version != NULL) {
-    // //         if(version > LOCAL_VERSION){
-    // //             system("wget https://twdash.com/files/twdash_local && chmod a+x twdash_local && mv twdash_local /usr/bin/twd");
-    // //             print("%stwdash has been updated to the version %s%s",GREEN,version,NC);
-    // //         } else {
-    // //             print("%sall updated in version %s%s",GREEN, LOCAL_VERSION,NC);
-    // //         }
-    // //     } else {
-    // //         print("%serror: Version number not found in JSON%s",ORANGE,NC);
-    // //     }
-    // // } else {
-    // //     print("%sfailed to fetch URL content%s",ORANGE,NC);
-    // // }
-    // free(content);
-// }
-// alias rm and add  arent predicting all possible
-// check in get_container_ip if the file is being deleted
-// alias not expeting container name doesnt exist
