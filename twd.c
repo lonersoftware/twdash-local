@@ -8,7 +8,7 @@
 #include <time.h>
 #include <curl/curl.h>
 #include <stdarg.h>
-#define LOCAL_VERSION "1.4.3"
+#define LOCAL_VERSION "1.4.4"
 #define MAX_WORDS 5 
 #define GREEN "\033[0;32m"
 #define ORANGE "\033[0;33m"
